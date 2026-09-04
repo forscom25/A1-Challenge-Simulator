@@ -1,102 +1,94 @@
-# Real-Scale Yongin Circuit via Unreal Engine Source Build — Progress
+# 실차 스케일 용인 서킷 — Unreal Engine 소스 빌드 진행상황
 
-Status as of 2026-09-04. Goal: build FSDS from Unreal Engine source so the
-real, full-scale Yongin circuit (not the scaled-down `CustomMap` workaround)
-can be used as an actual level, bypassing the ~128-cone cap and small
-world-extent limits of the packaged binary's `CustomMap`.
+2026-09-04 기준 상태. 목표: FSDS를 Unreal Engine 소스에서 직접 빌드해서
+실제 스케일(축소 없는) 용인 서킷을 (`CustomMap` 축소판 대신) 실제 레벨로
+쓸 수 있게 만드는 것 — 패키지된 바이너리 `CustomMap`의 약 128개 콘 상한과
+좁은 월드 범위 한계를 우회.
 
-## Done
+## 완료
 
-1. **Unreal Engine 4.27 built from source** at `~/UnrealEngine` (Editor,
-   ShaderCompileWorker, UnrealLightmass). Required building targets
-   one-at-a-time (`Build.sh <Target> Linux Development`) — building all 7
-   default targets in parallel via bare `make` hit a race in Epic's Linux
-   progress-wrapper script and silently dropped 4 of 7 targets with no error.
-2. **FSDS's own project compiled** (`BlocksEditor` = `Blocks` game module +
-   `AirSim` plugin). Hit and fixed two real bugs along the way:
-   - `AirSim/build.sh` had never been run in this project before (only the
-     ROS2 bridge's separate build path had), so `AirLib` was never staged
-     into `UE4Project/Plugins/AirSim/Source/AirLib` — fixed by running it.
-   - **ABI mismatch**: `librpc.a` (built with the system's `clang++-12`)
-     referenced `pthread_cond_clockwait`, a symbol not present in UE4's
-     bundled Linux toolchain's sysroot (`Engine/Extras/.../v19_clang-11.0.1-centos7`,
-     an old CentOS7-based glibc). Fixed by rebuilding `AirLib`/`rpclib` using
-     UE4's own bundled `clang`/`clang++` **and** passing the matching
-     `--sysroot=` — compiling against the old sysroot's headers means
-     libc++'s feature detection correctly avoids that codepath, matching
-     what UE4Editor's own linker links against.
-3. **`UE4Editor` launches successfully** with `FSOnline.uproject` loaded,
-   `TrainingMap` open. Enabled the `EditorScriptingUtilities` plugin (added
-   to `FSOnline.uproject`) so Python editor-scripting (`unreal.EditorLevelLibrary`
-   etc.) works — required a restart to take effect.
-4. **Investigated `TrainingMap`'s ground** via Python: it's a plain
-   `StaticMeshActor` named `floor` (not a Landscape), base tile 1m×1m,
-   currently scaled to 200m×250m — trivially resizable via `Scale`.
-5. **Investigated the `spline_cones_best_200` actor**: this is the
-   documented, standard map-authoring cone-spline system (see
-   `docs/map-tutorial.md`), *not* the opaque, capped Blueprint inside the
-   packaged binary's `CustomMap` level. Confirmed via component count
-   (192 `StaticMeshComponent`s for 30 spline points) that it auto-generates
-   cones by resampling the spline at a fixed internal spacing — no hard cap
-   like `CustomMap`'s ~128.
-6. **Populated it with the real, full-scale Yongin centerline** (256 points
-   at 10m spacing, 2563m loop, recentered so the start point is world
-   origin). Python's `SplineComponent.set_spline_points()` doesn't trigger
-   the Blueprint's Construction Script (that's only wired to real
-   UI-driven transform edits, not exposed to Python in this engine version)
-   — worked around by having the actor selected and nudged via the viewport
-   move gizmo (**W**, drag). Result: **1278 cone mesh components**,
-   visually confirmed in the Editor viewport — correct real track shape
-   (hairpins, esses, sweeping corners all present and recognizable).
-7. Cleaned up an accidental duplicate actor from an earlier UI mis-click.
+1. **Unreal Engine 4.27을 `~/UnrealEngine`에 소스 빌드** (Editor,
+   ShaderCompileWorker, UnrealLightmass). 타겟을 하나씩 빌드해야 했음
+   (`Build.sh <Target> Linux Development`) — 기본 7개 타겟을 인자 없는
+   `make`로 한번에 병렬 빌드하면 Epic의 Linux 진행률 표시 래퍼 스크립트에서
+   레이스 컨디션이 발생해서 에러 메시지도 없이 7개 중 4개 타겟이 조용히
+   누락됨.
+2. **FSDS 자체 프로젝트 컴파일 완료** (`BlocksEditor` = `Blocks` 게임 모듈 +
+   `AirSim` 플러그인). 진행 중 진짜 버그 두 개를 만나서 해결:
+   - `AirSim/build.sh`를 이 프로젝트에서 한 번도 실행한 적이 없었음
+     (ROS2 브릿지용 별도 빌드 경로만 썼었음), 그래서 `AirLib`이
+     `UE4Project/Plugins/AirSim/Source/AirLib`에 스테이징된 적이 없었음 —
+     실행해서 해결.
+   - **ABI 불일치**: `librpc.a`(시스템 `clang++-12`로 빌드됨)가
+     `pthread_cond_clockwait` 심볼을 참조하는데, 이 심볼은 UE4가 번들로
+     갖고 있는 Linux 툴체인의 sysroot
+     (`Engine/Extras/.../v19_clang-11.0.1-centos7`, 오래된 CentOS7 기반
+     glibc)에는 없음. `AirLib`/`rpclib`을 UE4 자체 번들 `clang`/`clang++`로,
+     **그리고** 그것과 일치하는 `--sysroot=`를 지정해서 다시 빌드함으로써
+     해결 — 오래된 sysroot의 헤더를 보고 컴파일하면 libc++의 기능 감지
+     로직이 그 코드 경로를 올바르게 피해가서, UE4Editor 자체 링커가 링크하는
+     대상과 맞아떨어짐.
+3. **`UE4Editor`가 `FSOnline.uproject`를 로드해서 정상 실행됨**,
+   `TrainingMap` 열림. Python 에디터 스크립팅
+   (`unreal.EditorLevelLibrary` 등)이 동작하도록
+   `EditorScriptingUtilities` 플러그인 활성화 (`FSOnline.uproject`에 추가) —
+   적용하려면 재시작 필요했음.
+4. **Python으로 `TrainingMap`의 바닥 조사**: `floor`라는 이름의 평범한
+   `StaticMeshActor`(Landscape 아님), 기본 타일 1m×1m, 현재 200m×250m로
+   스케일됨 — `Scale`만 바꾸면 손쉽게 리사이즈 가능.
+5. **`spline_cones_best_200` 액터 조사**: 이건 (`docs/map-tutorial.md`에
+   문서화된) 표준 맵 제작용 콘 스플라인 시스템이지, 패키지된 바이너리
+   `CustomMap` 레벨 안의 속을 알 수 없는 캡 걸린 Blueprint가 *아님*.
+   컴포넌트 개수로 확인 (스플라인 포인트 30개에 `StaticMeshComponent` 192개)
+   — 일정한 내부 간격으로 스플라인을 재샘플링해서 자동으로 콘을 생성하는
+   구조이며, `CustomMap`의 약 128개 같은 하드캡이 없음.
+6. **실제 스케일 용인 서킷 센터라인 데이터로 채움** (10m 간격 256개 포인트,
+   2563m 루프, 시작점이 월드 원점이 되도록 재중심화). Python의
+   `SplineComponent.set_spline_points()`는 Blueprint의 Construction
+   Script를 트리거하지 않음 (이건 실제 UI 기반 트랜스폼 편집에만 연결되어
+   있고, 이 엔진 버전에서는 Python에 노출되어 있지 않음) — 액터를 선택한
+   뒤 뷰포트 이동 기즈모(**W**, 드래그)로 살짝 움직여서 우회함. 결과:
+   **콘 메시 컴포넌트 1278개**, 에디터 뷰포트에서 육안으로 확인 — 실제
+   트랙 형태가 정확함 (헤어핀, 에스자 구간, 넓은 코너까지 전부 인식
+   가능한 형태로 존재).
+7. 이전 UI 실수 클릭으로 생긴 중복 액터 정리 완료.
+8. **새 맵으로 저장 완료**: `unreal.EditorLevelLibrary.save_current_level()`로
+   현재 편집 상태를 `TrainingMap.umap`에 임시로 저장 → 셸에서 그 파일을
+   `YonginCircuitMap.umap`으로 복사 → `git checkout`으로 원본
+   `TrainingMap.umap`을 깨끗한 상태로 복원. 이제
+   `UE4Project/Content/YonginCircuitMap.umap`에 우리 작업이 안전하게
+   보관되어 있고, 원본 `TrainingMap.umap`은 git에 커밋된 그대로 손상 없음.
 
-## Blocked on / in progress right now
+## 남은 작업
 
-Saving this work as a **new** map (`YonginCircuitMap`), not overwriting
-`TrainingMap`. No direct "Save As" in this engine's Python API, so the plan
-is:
-1. Run `unreal.EditorLevelLibrary.save_current_level()` in the Editor's
-   Python console — this saves the current (edited) state into
-   `TrainingMap.umap` **temporarily**.
-2. (My side, shell-level) copy that saved file to a new name
-   (`YonginCircuitMap.umap`), then `git checkout` to restore the pristine
-   original `TrainingMap.umap` (it's git-tracked and currently clean, so
-   this is fully safe/reversible).
-3. Load the new map in the Editor going forward.
+- [ ] 에디터에서 `YonginCircuitMap`을 로드해서 이후 작업은 이 파일 기준으로
+      진행
+- [ ] `floor` StaticMeshActor를 실제 트랙 범위에 맞게 리사이즈/재배치
+      (bbox ≈ 822m × 476m, 중심 ≈ (224, -78)m)
+- [ ] `PlayerStart`, `StartFinishLine`, `Referee`를 새 트랙의 실제
+      시작점에 맞게 재배치; `Referee`의 `Cones` 링크가 여전히 콘을 채운
+      스플라인 액터를 올바르게 가리키는지 확인
+- [ ] Play-in-Editor로 실제 주행 테스트
+- [ ] `RunUAT.sh BuildCookRun`으로 (GUI 없이 커맨드라인만으로) 새 맵을
+      포함한 스탠드얼론 Linux 빌드 패키징 — 에디터를 열지 않고도 지금의
+      `simulator/FSDS.sh`처럼 평소에 실행할 수 있도록
+- [ ] `fsds_ros2_bridge`로 검증: `/testing_only/track`에 실제 콘이 **전부**
+      나오는지 확인 (일부만이 아니라 — `CustomMap`의 캡 문제처럼 화면상
+      멀쩡해 보여도 몰래 누락될 수 있으니 화면만 믿지 말 것), 차량이 월드
+      밖으로 떨어지지 않고 실제 범위 전체를 주행할 수 있는지 확인
+- [ ] `SETUP_DEBUG_LOG.md`, `SIMULATOR_GUIDE_KR.md`에 새 소스빌드 절차와
+      새 맵 실행 방법 반영
 
-**Waiting on**: the Editor session to run step 1 (`ue_save_current.py`).
+## 지금까지 작성한 유용한 스크립트 (전부 `~/`에 있음, 에디터의
+Python (REPL) 콘솔에서 `exec(open("~/<파일명>").read())`로 실행)
 
-## Remaining tasks
-
-- [ ] Save current spline edits as `YonginCircuitMap` (blocked on above)
-- [ ] Resize/reposition the `floor` StaticMeshActor to cover the real track's
-      extent (bbox ≈ 822m × 476m, centered ≈ (224, -78)m)
-- [ ] Reposition `PlayerStart`, `StartFinishLine`, `Referee` to the new
-      track's actual start point; confirm `Referee`'s `Cones` link still
-      correctly references the populated spline actor
-- [ ] Test drive in Play-in-Editor
-- [ ] Package a standalone Linux build (`RunUAT.sh BuildCookRun`,
-      command-line, no GUI needed) including the new map, so it can be
-      launched day-to-day like the current `simulator/FSDS.sh` without
-      needing the Editor open
-- [ ] Verify via `fsds_ros2_bridge`: `/testing_only/track` shows **all**
-      real cones (not a subset — this is exactly the kind of thing that
-      silently broke before with `CustomMap`'s cap, so don't trust visuals
-      alone), and the car can drive the real extent without falling off
-      the world
-- [ ] Update `SETUP_DEBUG_LOG.md` and `SIMULATOR_GUIDE.md`/`_KR.md` with the
-      new from-source build process and how to launch the new map
-
-## Useful scripts written so far (all in `~/`, run via
-`exec(open("~/<name>").read())` in the Editor's Python (REPL) console)
-
-- `ue_inspect_level.py`, `ue_list_actors.py` — level/actor inspection
-- `ue_inspect_spline_cones.py`, `ue_inspect_spline_cones2.py` — spline_cones
-  actor inspection
-- `ue_populate_spline.py` — sets the real Yongin centerline onto the spline
-  (already run, done)
-- `ue_cleanup_and_frame.py` — removed the duplicate actor, selects the main
-  spline for viewport framing (already run, done)
-- `ue_save_current.py` — saves the current level (next step, not yet run)
-- `/home/ailab/yongin_centerline.csv` — the real, recentered 256-point
-  centerline data (meters) used to populate the spline
+- `ue_inspect_level.py`, `ue_list_actors.py` — 레벨/액터 조사
+- `ue_inspect_spline_cones.py`, `ue_inspect_spline_cones2.py` —
+  spline_cones 액터 조사
+- `ue_populate_spline.py` — 실제 용인 서킷 센터라인을 스플라인에 설정
+  (실행 완료)
+- `ue_cleanup_and_frame.py` — 중복 액터 제거, 뷰포트 프레이밍을 위해
+  메인 스플라인 선택 (실행 완료)
+- `ue_save_current.py` — 현재 레벨 저장 (실행 완료)
+- `/home/ailab/yongin_centerline.csv` — 스플라인을 채우는 데 쓴 실제
+  재중심화된 256개 포인트 센터라인 데이터 (미터 단위)
