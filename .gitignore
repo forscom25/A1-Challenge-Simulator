@@ -1,0 +1,6 @@
+# This repo is for team-facing guide docs only, not the actual project
+# content (which is huge, and mostly upstream/binary anyway).
+Formula-Student-Driverless-Simulator/
+simulator/
+.claude/
+*.log
