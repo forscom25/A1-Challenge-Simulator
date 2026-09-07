@@ -238,6 +238,49 @@ ros2 topic hz /fsds/cam3/image_color   # cam3 예시 (B 방법으로 실행했�
 속도(10Hz)와 해상도(640×480)로 데이터가 정상적으로 나오는 것까지 직접
 검증했습니다.
 
+## 5. Pure Pursuit 컨트롤러(`fsds_controller`) 실행하기
+
+용인 서킷 센터라인을 따라가는 최소 컨트롤러 스켈레톤. 알고리즘/설계/겪은
+버그는 [PROGRESS_CONTROLLER.md](PROGRESS_CONTROLLER.md) 참고. 시뮬레이터와
+ROS2 브릿지가 먼저 켜져 있어야 함 (위 1~2번).
+
+### 빌드 (최초 1회, 또는 코드 수정 후)
+
+```bash
+source /opt/ros/humble/setup.bash
+cd "/home/ailab/git/A1 Challenge Simulator/Formula-Student-Driverless-Simulator/ros2"
+colcon build --packages-select fsds_controller
+```
+
+### 실행 — 터미널 2개
+
+브릿지를 **B번 방법(카메라 포함, 권장)**으로 켰다면 모든 토픽이 `/fsds/`
+아래로 들어가므로 아래처럼 remap 필요. **A번 방법**(센서만)으로 켰다면
+`--ros-args -r ...` 부분을 전부 빼면 됨.
+
+**터미널 1** (참조 경로 퍼블리셔 — 실시간 `/testing_only/track` ground
+truth로부터 트랙 중심선을 직접 구성):
+```bash
+source /opt/ros/humble/setup.bash
+source "/home/ailab/git/A1 Challenge Simulator/Formula-Student-Driverless-Simulator/ros2/install/setup.bash"
+ros2 run fsds_controller path_publisher_node --ros-args \
+  -r testing_only/track:=/fsds/testing_only/track
+```
+
+**터미널 2** (컨트롤러 — Pure Pursuit로 조향/스로틀 계산해서 퍼블리시):
+```bash
+source /opt/ros/humble/setup.bash
+source "/home/ailab/git/A1 Challenge Simulator/Formula-Student-Driverless-Simulator/ros2/install/setup.bash"
+ros2 run fsds_controller controller_node --ros-args \
+  -r testing_only/odom:=/fsds/testing_only/odom \
+  -r control_command:=/fsds/control_command
+```
+
+각 터미널에서 `Ctrl+C`로 정지. 차량이 트랙을 벗어나면 시뮬레이터에서
+**Backspace**로 초기 위치 리셋 가능 — 컨트롤러는 매 주기 가장 가까운
+경로점부터 다시 목표를 잡으므로, 리셋해도 노드를 재시작할 필요 없이
+바로 다시 추종을 시작함.
+
 ## 알아두면 좋은 함정들 (자세한 내용은 `SETUP_DEBUG_LOG.md` 참고)
 
 - **NVIDIA 드라이버를 새로 설치할 때**: 이 UE4.27 기반 시뮬레이터에서
