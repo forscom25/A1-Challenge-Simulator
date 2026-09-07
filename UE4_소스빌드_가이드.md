@@ -31,6 +31,14 @@ Unreal Editor로 직접 레벨을 만들어야 함 — 그래서 Epic 계정 연
   으로 git 인증 연결 — 토큰이 대화 내용에 노출되지 않는 안전한 방식
 
 ### 빌드
+
+**주의**: `UnrealEngine/`은 (다른 대용량 디렉토리들과 달리) 홈 디렉토리
+바로 밑 `~/UnrealEngine`에 그대로 둠 — 한 번 빌드하고 나면 UBT가
+`Intermediate/Build/.../Makefile.bin` 같은 빌드 캐시 파일에 절대경로를
+그대로 박아 넣기 때문에, 나중에 옮기면 다음 증분 빌드 때 불필요하게 여러
+모듈이 재컴파일될 수 있음 (실제로 겪어본 뒤 다시 원위치로 되돌림). 클론할
+때부터 최종적으로 둘 위치에 바로 클론할 것.
+
 ```bash
 git clone --depth=1 -b 4.27 https://github.com/EpicGames/UnrealEngine.git ~/UnrealEngine
 cd ~/UnrealEngine
@@ -165,8 +173,8 @@ for a in actors:
 `mgeo_to_fsds.py`(용인 서킷 MGeo 변환 스크립트, 자세한 내용은
 `maps/YonginCircuit/mgeo-conversion-guide.md` 참고)의 센터라인 추출 로직을
 재사용해서, 실제 좌표를 시작점 기준 (0,0)으로 재중심화하고 10m 간격으로
-리샘플링한 256개 포인트를 CSV로 저장 (`/home/ailab/yongin_centerline.csv`,
-전체 루프 길이 2563.5m).
+리샘플링한 256개 포인트를 CSV로 저장
+(`UE4Project/editor_scripts/yongin_centerline.csv`, 전체 루프 길이 2563.5m).
 
 ### 스플라인에 실제 데이터 채우기
 
@@ -209,19 +217,24 @@ spline_comp.set_closed_loop(True, True)
    두었다면) `git checkout -- .../TrainingMap.umap`으로 원본 복원
 4. 이후 새 맵 파일을 기준으로 계속 작업
 
-## 4. 남은 작업 (진행 중)
+## 4. 이후 진행 상황 (완료 및 남은 작업)
 
-- `floor` 액터를 실제 트랙 범위(bbox 약 822m × 476m, 중심 약 (224, -78)m)에
-  맞게 리사이즈 및 재배치
-- `PlayerStart`/`StartFinishLine`/`Referee`를 새 트랙 시작점에 맞게 재배치,
-  `Referee`의 `Cones` 링크가 여전히 올바른 스플라인 액터를 가리키는지 확인
-- Play-in-Editor로 실제 주행 테스트
+`floor` 리사이즈, `PlayerStart`/`StartFinishLine`/`Referee` 재배치,
+Play-in-Editor 전체 랩 주행 테스트까지 전부 완료함. 다만
+`fsds_ros2_bridge`로 실제 연결해서 확인한 결과 **`/testing_only/track`에
+콘이 전부 나오지 않고 약 128개로 상한이 걸림** — 소스 스플라인의 콘
+배열 자체는 완전한 상태(1278개)인데도 RPC 응답에서만 잘림. 정확한
+원인은 찾지 못했고, 컨트롤러 로직 테스트에는 시각적으로 완전한 트랙이면
+충분하다고 판단해 우선순위를 낮추고 보류함. 조사 시도 전체 내역은
+[PROGRESS_UE4_BUILD.md](PROGRESS_UE4_BUILD.md)의 "미해결: 약 128개 콘
+상한이 새 레벨에서도 재현됨" 절 참고.
+
+남은 작업:
 - `RunUAT.sh BuildCookRun`으로 커맨드라인 기반 스탠드얼론 빌드 패키징
-  (에디터 없이 평소처럼 `FSDS.sh`류로 실행 가능하도록)
-- `fsds_ros2_bridge`로 연결해서 `/testing_only/track`에 콘이 **전부** 다
-  나오는지 확인 (화면만 믿지 말 것 — `CustomMap`에서 겪었던 것과 같은
-  숨겨진 누락이 있을 수 있음)
-- `SETUP_DEBUG_LOG.md`, `SIMULATOR_GUIDE.md`/`_KR.md`에 새 빌드 절차와 새
-  맵 실행 방법 반영
+  (에디터 없이 평소처럼 `FSDS.sh`류로 실행 가능하도록) — 보류, 지금은
+  Play-in-Editor로 충분해서 컨트롤러 스켈레톤 작업이 우선
+- 약 128개 콘 상한의 정확한 원인 재조사 — 보류
+- `SETUP_DEBUG_LOG.md`, `SIMULATOR_GUIDE.md`에 새 빌드 절차와 새 맵 실행
+  방법 반영 필요 여부 검토
 
 진행 상황과 남은 작업의 최신 상태는 `PROGRESS_UE4_BUILD.md` 참고.

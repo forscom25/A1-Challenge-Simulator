@@ -62,6 +62,38 @@ cp "/home/ailab/git/A1 Challenge Simulator/Formula-Student-Driverless-Simulator/
 (GUI의 CustomMap 텍스트 입력창으로 불러올 때는 이 제약이 없습니다 — 그건
 커맨드라인 인자가 아니라 텍스트 입력창이기 때문입니다.)
 
+### 에디터로 실제 스케일 용인 서킷 실행하기
+
+패키지된 바이너리 대신, 소스에서 빌드한 UE4 에디터로 실제 스케일 용인
+서킷(`YonginCircuitMap`)을 직접 열 수도 있습니다. 소스빌드 배경/이유는
+`UE4_소스빌드_가이드.md`, 진행 경과는 `PROGRESS_UE4_BUILD.md` 참고.
+
+```bash
+~/UnrealEngine/Engine/Binaries/Linux/UE4Editor \
+  "/home/ailab/git/A1 Challenge Simulator/Formula-Student-Driverless-Simulator/UE4Project/FSOnline.uproject" \
+  YonginCircuitMap -log
+```
+- 마지막 인자로 넘긴 맵 이름(`YonginCircuitMap`)은 생략 가능 — 생략하면
+  마지막에 열려 있던 레벨로 뜸.
+- `-log`는 별도 콘솔 창에 엔진 로그를 실시간으로 띄워줌 — 로딩이 오래
+  걸릴 때 실제로 멈춘 건지 셰이더 컴파일 등을 하느라 바쁜 건지 구분하는
+  용도로 유용.
+
+**리소스 관련 주의**: 이 프로젝트는 엔진 자체가 93GB, 레벨에 콘 메시가
+1278개라 에디터 구동 시 메모리/CPU 사용량이 상당함. 화면이 멈춘 것처럼
+보이면 강제 종료하기 전에 `-log` 콘솔 창이나 `htop`으로 실제로 응답이
+없는지(단순 로딩 중이 아닌지) 먼저 확인할 것. 정말 강제 종료가 필요하면:
+1. 먼저 `kill <PID>`(SIGTERM)로 정상 종료를 시도 — 에디터가 임시 파일을
+   정리할 시간을 줌.
+2. 반응이 없으면 `kill -9 <PID>`. 강제 종료 후 재실행 전에 좀비
+   프로세스나 락 파일이 남았는지 확인하면 안전:
+   ```bash
+   pgrep -af UE4Editor
+   find "<UE4Project 경로>" -iname "*.lock"
+   ```
+   지금까지는 강제 종료(`-9`) 후에도 락 파일이 남거나 재실행이 막힌 적은
+   없었음 — 그냥 다시 켜면 됨.
+
 ## 2. ROS2 브릿지 실행
 
 필요에 따라 아래 두 가지 방법 중 하나를 선택하세요:
