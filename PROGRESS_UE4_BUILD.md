@@ -166,6 +166,15 @@ QoS를 맞춰서 Python으로 직접 subscribe한 결과, `/testing_only/track`�
       배열을 직접 읽어서 뭔가 할 일이 있다면 (콘 위치 재확인 등),
       **반드시 라이브 RPC 데이터를 대신 쓸 것** — 이 배열은 신뢰 불가.
       근본 원인(왜 배열이 안 갱신됐는지) 자체는 미조사 상태.
+      **정정 (MATLAB 독립 검증으로 추가 확인, `PROGRESS_CONTROLLER.md`
+      참고)**: 이 stale 배열만의 문제가 아니었음 — 애초에 레벨 제작
+      입력이었던 `yongin_centerline.csv` 자체도 라이브 RPC 데이터와
+      비슷한 크기(평균 6.66m, 최대 9.51m)로 어긋나 있었고, 트랙 전체에
+      걸쳐 광범위하게 나타남. 가장 유력한 설명은 Unreal 스플라인이
+      성긴 제어점 사이를 매끄러운 곡선으로 보간해서 콘을 배치하기
+      때문 — 코너도 실제보다 약 15~20% 완만해짐. 자세한 내용과 근거는
+      [PROGRESS_CONTROLLER.md](PROGRESS_CONTROLLER.md)의 "MGeo → FSDS
+      변환 파이프라인 독립 검증" 절.
 - [ ] `SETUP_DEBUG_LOG.md`, `SIMULATOR_GUIDE.md`에 새 소스빌드 절차와
       새 맵 실행 방법 반영 필요 여부 검토
 
